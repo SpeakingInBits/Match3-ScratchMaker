@@ -521,15 +521,35 @@ class Match3Maker {
     exportToPDF() {
         const element = document.getElementById('pdfPreview');
         
+        // Temporarily force inline styles for better PDF rendering
+        const titles = element.querySelectorAll('.match3-page h2');
+        const originalStyles = [];
+        titles.forEach((title, index) => {
+            originalStyles[index] = title.style.cssText;
+            title.style.cssText += 'color: #ff1493 !important; font-weight: bold !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3) !important;';
+        });
+        
         const opt = {
             margin: 0,
             filename: 'match3_circles.pdf',
-            image: { type: 'png', quality: 0.98 },
-            html2canvas: { scale: 3, useCORS: true, allowTaint: true },
+            image: { type: 'png', quality: 1.0 },
+            html2canvas: { 
+                scale: 3, 
+                useCORS: true, 
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                letterRendering: true
+            },
             jsPDF: { format: 'letter', orientation: 'portrait', unit: 'in' }
         };
 
-        html2pdf().set(opt).from(element).save();
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Restore original styles
+            titles.forEach((title, index) => {
+                title.style.cssText = originalStyles[index];
+            });
+        });
     }
 }
 

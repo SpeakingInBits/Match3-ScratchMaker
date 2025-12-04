@@ -267,14 +267,16 @@ body {
 }
 
 .match3-page h2 {
-    font-size: 36px;
-    color: #ff6b9d;
+    font-size: 48px;
+    color: #ff1493;
     text-align: center;
     margin: 0;
     font-family: 'Brush Script MT', 'Lucida Handwriting', cursive;
-    font-weight: normal;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    font-weight: bold;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
     letter-spacing: 2px;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
 }
 
 .editable-title {
@@ -527,6 +529,13 @@ body {
 
     .match3-page {
         page-break-after: always;
+    }
+    
+    .match3-page h2 {
+        color: #ff1493 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        font-weight: bold !important;
     }
     
     .circle-slot {
