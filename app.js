@@ -11,13 +11,101 @@ class Match3Maker {
         this.dragStartY = 0;
         this.dragStartOffsetX = 0;
         this.dragStartOffsetY = 0;
+        this.storageKey = 'match3circles_data';
+        this.galleryStorageKey = 'match3gallery_images';
+        this.galleryImages = []; // Store uploaded images
         
         this.init();
     }
 
     init() {
+        this.loadFromStorage();
+        this.loadGalleryImages();
         this.setupEventListeners();
         this.updateUI();
+    }
+
+    loadFromStorage() {
+        try {
+            const stored = localStorage.getItem(this.storageKey);
+            if (stored) {
+                this.circles = JSON.parse(stored);
+            }
+        } catch (err) {
+            console.error('Error loading from storage:', err);
+            this.circles = Array(12).fill(null);
+        }
+    }
+
+    loadGalleryImages() {
+        try {
+            const stored = localStorage.getItem(this.galleryStorageKey);
+            if (stored) {
+                const imageDataArray = JSON.parse(stored);
+                let loadedCount = 0;
+                this.galleryImages = imageDataArray.map((dataUrl, index) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        loadedCount++;
+                        // Render gallery once all images are loaded
+                        if (loadedCount === imageDataArray.length) {
+                            this.renderGallery();
+                            document.getElementById('imageGallery').style.display = 'block';
+                        }
+                    };
+                    img.src = dataUrl;
+                    return {
+                        data: dataUrl,
+                        img: img
+                    };
+                });
+            }
+        } catch (err) {
+            console.error('Error loading gallery images:', err);
+            this.galleryImages = [];
+        }
+    }
+
+    saveGalleryImages() {
+        try {
+            const imageDataArray = this.galleryImages.map(img => img.data);
+            localStorage.setItem(this.galleryStorageKey, JSON.stringify(imageDataArray));
+        } catch (err) {
+            console.error('Error saving gallery images:', err);
+            if (err.name === 'QuotaExceededError') {
+                alert('Storage quota exceeded. Please remove some images and try again.');
+            }
+        }
+    }
+
+    saveToStorage() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.circles));
+            this.showSaveStatus('saved');
+        } catch (err) {
+            console.error('Error saving to storage:', err);
+            this.showSaveStatus('error');
+            if (err.name === 'QuotaExceededError') {
+                alert('Storage quota exceeded. Please remove some images and try again.');
+            }
+        }
+    }
+
+    showSaveStatus(status) {
+        const statusEl = document.getElementById('saveStatus');
+        if (!statusEl) return;
+        
+        if (status === 'saved') {
+            statusEl.textContent = '✓ Saved';
+            statusEl.className = 'save-status saved';
+            setTimeout(() => {
+                statusEl.textContent = 'Auto-saving...';
+                statusEl.className = 'save-status';
+            }, 2000);
+        } else if (status === 'error') {
+            statusEl.textContent = '✗ Save Error';
+            statusEl.className = 'save-status error';
+        }
     }
 
     setupEventListeners() {
@@ -136,7 +224,7 @@ class Match3Maker {
     }
 
     handleDragEnter(e) {
-        if (e.dataTransfer.types.includes('application/json')) {
+        if (e.dataTransfer.types.includes('application/json') || e.dataTransfer.types.includes('galleryImageIndex')) {
             e.target.style.opacity = '0.7';
         }
     }
@@ -150,12 +238,36 @@ class Match3Maker {
         e.target.style.opacity = '1';
         
         try {
+            // Check if it's a gallery image
+            const galleryIndex = e.dataTransfer.getData('galleryImageIndex');
+            if (galleryIndex !== '') {
+                const galleryImg = this.galleryImages[parseInt(galleryIndex)];
+                if (galleryImg) {
+                    this.currentEditingIndex = index;
+                    this.currentImage = galleryImg.img;
+                    // Reset zoom and position for new image
+                    this.zoom = 1;
+                    this.offsetX = 0;
+                    this.offsetY = 0;
+                    document.getElementById('zoomSlider').value = 1;
+                    document.getElementById('zoomValue').textContent = '100%';
+                    
+                    // Render preview and show modal with preview section
+                    this.updatePreview();
+                    document.getElementById('previewSection').style.display = 'flex';
+                    document.getElementById('imageModal').style.display = 'block';
+                }
+                return;
+            }
+            
+            // Original circle-to-circle drag
             const data = e.dataTransfer.getData('application/json');
             if (!data) return;
             
             const circleData = JSON.parse(data);
             this.circles[index] = circleData;
             this.updateUI();
+            this.saveToStorage();
         } catch (err) {
             console.error('Error dropping circle:', err);
         }
@@ -164,8 +276,7 @@ class Match3Maker {
     openImageModal(index) {
         this.currentEditingIndex = index;
         document.getElementById('imageModal').style.display = 'block';
-        document.getElementById('previewSection').style.display = 'none';
-        document.getElementById('imageInput').value = '';
+        document.getElementById('previewSection').style.display = 'flex';
         
         // Reset position and zoom
         this.zoom = 1;
@@ -182,20 +293,61 @@ class Match3Maker {
     }
 
     handleImageSelect(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                this.currentImage = img;
-                document.getElementById('previewSection').style.display = 'flex';
-                this.updatePreview();
+        // Clear previous gallery images
+        this.galleryImages = [];
+
+        // Process all selected files
+        let loadedCount = 0;
+        Array.from(files).forEach((file) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.galleryImages.push({
+                        data: event.target.result,
+                        img: img
+                    });
+                    loadedCount++;
+                    
+                    // Show gallery when all images are loaded
+                    if (loadedCount === files.length) {
+                        this.renderGallery();
+                        this.saveGalleryImages();
+                        document.getElementById('imageGallery').style.display = 'block';
+                        document.getElementById('previewSection').style.display = 'none';
+                    }
+                };
+                img.src = event.target.result;
             };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    renderGallery() {
+        const galleryContainer = document.getElementById('galleryContainer');
+        galleryContainer.innerHTML = '';
+
+        this.galleryImages.forEach((imgData, index) => {
+            const galleryItem = document.createElement('div');
+            galleryItem.className = 'gallery-image';
+            galleryItem.draggable = true;
+            galleryItem.dataset.galleryIndex = index;
+
+            const img = document.createElement('img');
+            img.src = imgData.data;
+            galleryItem.appendChild(img);
+
+            // Drag event for gallery images
+            galleryItem.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('galleryImageIndex', index.toString());
+            });
+
+            galleryContainer.appendChild(galleryItem);
+        });
     }
 
     updatePreview() {
@@ -265,6 +417,7 @@ class Match3Maker {
         };
 
         this.updateUI();
+        this.saveToStorage();
         this.closeImageModal();
     }
 
@@ -280,12 +433,19 @@ class Match3Maker {
     removeCircle(index) {
         this.circles[index] = null;
         this.updateUI();
+        this.saveToStorage();
     }
 
     resetAll() {
         if (confirm('Are you sure you want to remove all images?')) {
             this.circles = Array(12).fill(null);
+            this.galleryImages = [];
+            document.getElementById('imageGallery').style.display = 'none';
+            document.getElementById('galleryContainer').innerHTML = '';
+            document.getElementById('imageInput').value = '';
             this.updateUI();
+            this.saveToStorage();
+            this.saveGalleryImages();
         }
     }
 
