@@ -11,122 +11,271 @@ class Match3Maker {
         this.dragStartY = 0;
         this.dragStartOffsetX = 0;
         this.dragStartOffsetY = 0;
-        this.storageKey = 'match3circles_data';
-        this.galleryStorageKey = 'match3gallery_images';
-        this.titlesStorageKey = 'match3titles_data';
+        this.dbName = 'Match3MakerDB';
+        this.dbVersion = 1;
+        this.db = null;
         this.galleryImages = []; // Store uploaded images
         this.titles = {
             'title-top': 'MATCH 3',
             'title-bottom': 'MATCH 3'
         };
+        this.backgrounds = {
+            'top': null,
+            'bottom': null
+        };
         
-        this.init();
+        this.initDB();
     }
 
-    init() {
-        this.loadFromStorage();
-        this.loadTitles();
-        this.loadGalleryImages();
+    async initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.dbVersion);
+            
+            request.onerror = () => {
+                console.error('Database failed to open');
+                reject(request.error);
+            };
+            
+            request.onsuccess = () => {
+                this.db = request.result;
+                console.log('Database opened successfully');
+                this.init();
+                resolve();
+            };
+            
+            request.onupgradeneeded = (e) => {
+                this.db = e.target.result;
+                
+                // Create object stores if they don't exist
+                if (!this.db.objectStoreNames.contains('circles')) {
+                    this.db.createObjectStore('circles', { keyPath: 'id' });
+                }
+                if (!this.db.objectStoreNames.contains('gallery')) {
+                    this.db.createObjectStore('gallery', { keyPath: 'id' });
+                }
+                if (!this.db.objectStoreNames.contains('settings')) {
+                    this.db.createObjectStore('settings', { keyPath: 'id' });
+                }
+            };
+        });
+    }
+
+    async init() {
+        await this.loadFromStorage();
+        await this.loadTitles();
+        await this.loadBackgrounds();
+        await this.loadGalleryImages();
         this.setupEventListeners();
         this.updateUI();
     }
 
-    loadFromStorage() {
+    async loadFromStorage() {
         try {
-            const stored = localStorage.getItem(this.storageKey);
-            if (stored) {
-                this.circles = JSON.parse(stored);
-            }
+            const transaction = this.db.transaction(['circles'], 'readonly');
+            const objectStore = transaction.objectStore('circles');
+            const request = objectStore.get('circlesData');
+            
+            return new Promise((resolve) => {
+                request.onsuccess = () => {
+                    if (request.result) {
+                        this.circles = request.result.data;
+                    }
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error('Error loading circles');
+                    this.circles = Array(12).fill(null);
+                    resolve();
+                };
+            });
         } catch (err) {
             console.error('Error loading from storage:', err);
             this.circles = Array(12).fill(null);
         }
     }
 
-    loadGalleryImages() {
+    async loadGalleryImages() {
         try {
-            const stored = localStorage.getItem(this.galleryStorageKey);
-            if (stored) {
-                const imageDataArray = JSON.parse(stored);
-                let loadedCount = 0;
-                this.galleryImages = imageDataArray.map((dataUrl, index) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        loadedCount++;
-                        // Render gallery once all images are loaded
-                        if (loadedCount === imageDataArray.length) {
-                            this.renderGallery();
-                            document.getElementById('imageGallery').style.display = 'block';
-                        }
-                    };
-                    img.src = dataUrl;
-                    return {
-                        data: dataUrl,
-                        img: img
-                    };
-                });
-            }
+            const transaction = this.db.transaction(['gallery'], 'readonly');
+            const objectStore = transaction.objectStore('gallery');
+            const request = objectStore.get('galleryData');
+            
+            return new Promise((resolve) => {
+                request.onsuccess = () => {
+                    if (request.result) {
+                        const imageDataArray = request.result.data;
+                        let loadedCount = 0;
+                        this.galleryImages = imageDataArray.map((dataUrl) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                loadedCount++;
+                                if (loadedCount === imageDataArray.length) {
+                                    this.renderGallery();
+                                    document.getElementById('imageGallery').style.display = 'block';
+                                }
+                            };
+                            img.src = dataUrl;
+                            return { data: dataUrl, img: img };
+                        });
+                    }
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error('Error loading gallery');
+                    this.galleryImages = [];
+                    resolve();
+                };
+            });
         } catch (err) {
             console.error('Error loading gallery images:', err);
             this.galleryImages = [];
         }
     }
 
-    saveGalleryImages() {
+    async saveGalleryImages() {
         try {
+            const transaction = this.db.transaction(['gallery'], 'readwrite');
+            const objectStore = transaction.objectStore('gallery');
             const imageDataArray = this.galleryImages.map(img => img.data);
-            localStorage.setItem(this.galleryStorageKey, JSON.stringify(imageDataArray));
+            objectStore.put({ id: 'galleryData', data: imageDataArray });
+            
+            transaction.oncomplete = () => {
+                this.showSaveStatus('saved');
+            };
+            transaction.onerror = () => {
+                console.error('Error saving gallery');
+                this.showSaveStatus('error');
+            };
         } catch (err) {
             console.error('Error saving gallery images:', err);
-            if (err.name === 'QuotaExceededError') {
-                alert('Storage quota exceeded. Please remove some images and try again.');
-            }
+            this.showSaveStatus('error');
         }
     }
 
-    saveToStorage() {
+    async saveToStorage() {
         try {
-            localStorage.setItem(this.storageKey, JSON.stringify(this.circles));
-            this.showSaveStatus('saved');
+            const transaction = this.db.transaction(['circles'], 'readwrite');
+            const objectStore = transaction.objectStore('circles');
+            objectStore.put({ id: 'circlesData', data: this.circles });
+            
+            transaction.oncomplete = () => {
+                this.showSaveStatus('saved');
+            };
+            transaction.onerror = () => {
+                console.error('Error saving circles');
+                this.showSaveStatus('error');
+            };
         } catch (err) {
             console.error('Error saving to storage:', err);
             this.showSaveStatus('error');
-            if (err.name === 'QuotaExceededError') {
-                alert('Storage quota exceeded. Please remove some images and try again.');
-            }
         }
     }
 
-    loadTitles() {
+    async loadTitles() {
         try {
-            const saved = localStorage.getItem(this.titlesStorageKey);
-            if (saved) {
-                this.titles = JSON.parse(saved);
-                // Update DOM elements with saved titles
-                Object.keys(this.titles).forEach(key => {
-                    const titleEl = document.querySelector(`[data-title-key="${key}"]`);
-                    if (titleEl) {
-                        titleEl.textContent = this.titles[key];
+            const transaction = this.db.transaction(['settings'], 'readonly');
+            const objectStore = transaction.objectStore('settings');
+            const request = objectStore.get('titlesData');
+            
+            return new Promise((resolve) => {
+                request.onsuccess = () => {
+                    if (request.result) {
+                        this.titles = request.result.data;
+                        Object.keys(this.titles).forEach(key => {
+                            const titleEl = document.querySelector(`[data-title-key="${key}"]`);
+                            if (titleEl) {
+                                titleEl.textContent = this.titles[key];
+                            }
+                        });
                     }
-                });
-            }
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error('Error loading titles');
+                    resolve();
+                };
+            });
         } catch (err) {
             console.error('Error loading titles:', err);
         }
     }
 
-    saveTitles() {
+    async saveTitles() {
         try {
-            // Get current title values from DOM
             document.querySelectorAll('[data-title-key]').forEach(titleEl => {
                 const key = titleEl.getAttribute('data-title-key');
                 this.titles[key] = titleEl.textContent;
             });
-            localStorage.setItem(this.titlesStorageKey, JSON.stringify(this.titles));
-            this.showSaveStatus('saved');
+            const transaction = this.db.transaction(['settings'], 'readwrite');
+            const objectStore = transaction.objectStore('settings');
+            objectStore.put({ id: 'titlesData', data: this.titles });
+            
+            transaction.oncomplete = () => {
+                this.showSaveStatus('saved');
+            };
+            transaction.onerror = () => {
+                console.error('Error saving titles');
+                this.showSaveStatus('error');
+            };
         } catch (err) {
             console.error('Error saving titles:', err);
             this.showSaveStatus('error');
+        }
+    }
+
+    async loadBackgrounds() {
+        try {
+            const transaction = this.db.transaction(['settings'], 'readonly');
+            const objectStore = transaction.objectStore('settings');
+            const request = objectStore.get('backgroundsData');
+            
+            return new Promise((resolve) => {
+                request.onsuccess = () => {
+                    if (request.result) {
+                        this.backgrounds = request.result.data;
+                        this.applyBackgrounds();
+                    }
+                    resolve();
+                };
+                request.onerror = () => {
+                    console.error('Error loading backgrounds');
+                    resolve();
+                };
+            });
+        } catch (err) {
+            console.error('Error loading backgrounds:', err);
+        }
+    }
+
+    async saveBackgrounds() {
+        try {
+            const transaction = this.db.transaction(['settings'], 'readwrite');
+            const objectStore = transaction.objectStore('settings');
+            objectStore.put({ id: 'backgroundsData', data: this.backgrounds });
+            
+            transaction.oncomplete = () => {
+                this.showSaveStatus('saved');
+            };
+            transaction.onerror = () => {
+                console.error('Error saving backgrounds');
+                this.showSaveStatus('error');
+            };
+        } catch (err) {
+            console.error('Error saving backgrounds:', err);
+            this.showSaveStatus('error');
+        }
+    }
+
+    applyBackgrounds() {
+        if (this.backgrounds.top) {
+            document.querySelector('.match3-top').style.backgroundImage = `url(${this.backgrounds.top})`;
+            document.querySelector('.match3-top').style.backgroundSize = 'cover';
+            document.querySelector('.match3-top').style.backgroundPosition = 'center';
+        }
+        if (this.backgrounds.bottom) {
+            document.querySelector('.match3-bottom').style.backgroundImage = `url(${this.backgrounds.bottom})`;
+            document.querySelector('.match3-bottom').style.backgroundSize = 'cover';
+            document.querySelector('.match3-bottom').style.backgroundPosition = 'center';
         }
     }
 
@@ -210,6 +359,55 @@ class Match3Maker {
                 this.closeImageModal();
             }
         });
+
+        // Background drag and drop
+        document.querySelectorAll('.match3-page').forEach((page, index) => {
+            const bgKey = index === 0 ? 'top' : 'bottom';
+            
+            page.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const galleryIndex = e.dataTransfer.getData('galleryImageIndex');
+                if (galleryIndex !== '') {
+                    e.dataTransfer.dropEffect = 'copy';
+                    page.classList.add('drag-over-bg');
+                }
+            });
+            
+            page.addEventListener('dragleave', (e) => {
+                if (e.target === page) {
+                    page.classList.remove('drag-over-bg');
+                }
+            });
+            
+            page.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                page.classList.remove('drag-over-bg');
+                
+                // Check if dropping from gallery
+                const galleryIndex = e.dataTransfer.getData('galleryImageIndex');
+                if (galleryIndex !== '') {
+                    const imgData = this.galleryImages[parseInt(galleryIndex)];
+                    if (imgData) {
+                        this.backgrounds[bgKey] = imgData.data;
+                        this.applyBackgrounds();
+                        this.saveBackgrounds();
+                    }
+                }
+            });
+            
+            page.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (this.backgrounds[bgKey]) {
+                    if (confirm('Remove background image?')) {
+                        this.backgrounds[bgKey] = null;
+                        page.style.backgroundImage = '';
+                        this.saveBackgrounds();
+                    }
+                }
+            });
+        });
     }
 
     startDrag(e) {
@@ -284,6 +482,7 @@ class Match3Maker {
 
     handleDrop(e, index) {
         e.preventDefault();
+        e.stopPropagation();
         e.target.style.opacity = '1';
         
         try {
@@ -345,11 +544,9 @@ class Match3Maker {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        // Clear previous gallery images
-        this.galleryImages = [];
-
-        // Process all selected files
+        // Process all selected files (append to existing gallery)
         let loadedCount = 0;
+        const totalFiles = files.length;
         Array.from(files).forEach((file) => {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -362,7 +559,7 @@ class Match3Maker {
                     loadedCount++;
                     
                     // Show gallery when all images are loaded
-                    if (loadedCount === files.length) {
+                    if (loadedCount === totalFiles) {
                         this.renderGallery();
                         this.saveGalleryImages();
                         document.getElementById('imageGallery').style.display = 'block';
@@ -486,15 +683,20 @@ class Match3Maker {
     }
 
     resetAll() {
-        if (confirm('Are you sure you want to remove all images?')) {
+        if (confirm('Are you sure you want to remove all images and backgrounds?')) {
             this.circles = Array(12).fill(null);
             this.galleryImages = [];
+            this.backgrounds = { 'top': null, 'bottom': null };
             document.getElementById('imageGallery').style.display = 'none';
             document.getElementById('galleryContainer').innerHTML = '';
             document.getElementById('imageInput').value = '';
+            document.querySelectorAll('.match3-page').forEach(page => {
+                page.style.backgroundImage = '';
+            });
             this.updateUI();
             this.saveToStorage();
             this.saveGalleryImages();
+            this.saveBackgrounds();
         }
     }
 
