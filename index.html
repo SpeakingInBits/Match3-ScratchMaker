@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match3Maker</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>Match3Maker</h1>
+            <div class="controls">
+                <button id="addCircleBtn" class="btn btn-primary">Add Circle</button>
+                <button id="exportPdfBtn" class="btn btn-secondary">Export to PDF</button>
+                <button id="resetBtn" class="btn btn-danger">Reset All</button>
+            </div>
+            <div class="circle-list">
+                <h3>Circles (12 total)</h3>
+                <div id="circlesList"></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="preview-container">
+                <div id="pdfPreview" class="pdf-preview">
+                    <div class="page">
+                        <div class="match3-page match3-top">
+                            <h2>MATCH 3</h2>
+                            <div class="circles-grid">
+                                <div class="circle-slot" data-index="0" draggable="true"></div>
+                                <div class="circle-slot" data-index="1" draggable="true"></div>
+                                <div class="circle-slot" data-index="2" draggable="true"></div>
+                                <div class="circle-slot" data-index="3" draggable="true"></div>
+                                <div class="circle-slot" data-index="4" draggable="true"></div>
+                                <div class="circle-slot" data-index="5" draggable="true"></div>
+                            </div>
+                        </div>
+                        <div class="match3-page match3-bottom">
+                            <h2>MATCH 3</h2>
+                            <div class="circles-grid">
+                                <div class="circle-slot" data-index="6" draggable="true"></div>
+                                <div class="circle-slot" data-index="7" draggable="true"></div>
+                                <div class="circle-slot" data-index="8" draggable="true"></div>
+                                <div class="circle-slot" data-index="9" draggable="true"></div>
+                                <div class="circle-slot" data-index="10" draggable="true"></div>
+                                <div class="circle-slot" data-index="11" draggable="true"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for image upload and preview -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Add Image to Circle</h2>
+            
+            <div class="modal-body">
+                <div class="upload-section">
+                    <input type="file" id="imageInput" accept="image/*">
+                    <label for="imageInput" class="file-label">Choose Image</label>
+                </div>
+
+                <div id="previewSection" class="preview-section" style="display: none;">
+                    <div class="preview-preview">
+                        <h3>Preview (Drag to Move, Scroll to Zoom)</h3>
+                        <canvas id="previewCanvas" width="200" height="200"></canvas>
+                    </div>
+
+                    <div class="preview-controls">
+                        <div class="control-group">
+                            <label for="zoomSlider">Zoom:</label>
+                            <input type="range" id="zoomSlider" min="0.5" max="3" step="0.05" value="1">
+                            <span id="zoomValue">100%</span>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                        <button id="confirmBtn" class="btn btn-primary">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
