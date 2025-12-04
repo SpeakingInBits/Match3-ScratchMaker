@@ -603,6 +603,10 @@ class Match3Maker {
         const ctx = canvas.getContext('2d');
         const radius = canvas.width / 2;
 
+        // Enable high-quality image smoothing
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
         // Clear canvas completely
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -662,6 +666,10 @@ class Match3Maker {
         finalCanvas.height = canvas.height;
         const finalCtx = finalCanvas.getContext('2d');
 
+        // Enable high-quality image smoothing
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = 'high';
+
         // Draw only the circular portion
         finalCtx.save();
         finalCtx.beginPath();
@@ -688,7 +696,7 @@ class Match3Maker {
         finalCtx.drawImage(img, x, y, drawWidth, drawHeight);
         finalCtx.restore();
 
-        const imageData = finalCanvas.toDataURL('image/png');
+        const imageData = finalCanvas.toDataURL('image/png', 1.0);
 
         this.circles[this.currentEditingIndex] = {
             image: imageData,
