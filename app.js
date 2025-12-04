@@ -653,7 +653,42 @@ class Match3Maker {
         if (!this.currentImage) return;
 
         const canvas = document.getElementById('previewCanvas');
-        const imageData = canvas.toDataURL('image/png');
+        const ctx = canvas.getContext('2d');
+        const radius = canvas.width / 2;
+
+        // Create a new canvas for the final circular image
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = canvas.width;
+        finalCanvas.height = canvas.height;
+        const finalCtx = finalCanvas.getContext('2d');
+
+        // Draw only the circular portion
+        finalCtx.save();
+        finalCtx.beginPath();
+        finalCtx.arc(radius, radius, radius, 0, Math.PI * 2);
+        finalCtx.clip();
+
+        // Calculate image dimensions
+        const img = this.currentImage;
+        const imgAspect = img.width / img.height;
+        let drawWidth, drawHeight;
+        const circleDiameter = canvas.width * this.zoom;
+        
+        if (imgAspect > 1) {
+            drawHeight = circleDiameter;
+            drawWidth = drawHeight * imgAspect;
+        } else {
+            drawWidth = circleDiameter;
+            drawHeight = drawWidth / imgAspect;
+        }
+
+        const x = (canvas.width - drawWidth) / 2 + this.offsetX;
+        const y = (canvas.height - drawHeight) / 2 + this.offsetY;
+
+        finalCtx.drawImage(img, x, y, drawWidth, drawHeight);
+        finalCtx.restore();
+
+        const imageData = finalCanvas.toDataURL('image/png');
 
         this.circles[this.currentEditingIndex] = {
             image: imageData,

@@ -332,7 +332,7 @@ body {
     border-radius: 50%;
     border: none;
     overflow: hidden;
-    background: white;
+    background: transparent;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -558,6 +558,10 @@ body {
         font-weight: bold !important;
     }
     
+    .circles-grid {
+        gap: 15px !important;
+    }
+    
     .circle-slot {
         border-radius: 50% !important;
         border: none !important;
@@ -565,6 +569,9 @@ body {
         height: 2in !important;
         flex-shrink: 0 !important;
         overflow: hidden !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
     
     .circle-slot img {
@@ -573,5 +580,7 @@ body {
         height: 100% !important;
         object-fit: cover !important;
         display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 }
