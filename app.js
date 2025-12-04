@@ -158,7 +158,6 @@ class Match3Maker {
         const canvas = document.getElementById('previewCanvas');
 
         // Control elements
-        document.getElementById('addCircleBtn').addEventListener('click', () => this.addCircle());
         document.getElementById('exportPdfBtn').addEventListener('click', () => this.exportToPDF());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetAll());
 
