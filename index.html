@@ -17,28 +17,22 @@
                 <button id="resetBtn" class="btn btn-danger">Reset All</button>
                 <div id="saveStatus" class="save-status">Auto-saving...</div>
             </div>
-            <div class="circle-list">
-                <h3>Circles (12 total)</h3>
-                <div id="circlesList"></div>
+            <div class="upload-controls-sidebar">
+                <input type="file" id="imageInput" accept="image/*" multiple>
+                <label for="imageInput" class="file-label">Upload Images</label>
+            </div>
+            <div id="imageGallery" class="image-gallery-sidebar" style="display: none;">
+                <h3>Your Images</h3>
+                <div id="galleryContainer" class="gallery-container-sidebar"></div>
             </div>
         </div>
 
         <div class="main-content">
             <div class="preview-container">
-                <div class="upload-controls">
-                    <input type="file" id="imageInput" accept="image/*" multiple>
-                    <label for="imageInput" class="file-label">Upload Images</label>
-                </div>
-
-                <div id="imageGallery" class="image-gallery" style="display: none;">
-                    <h3>Your Images (Drag to circles)</h3>
-                    <div id="galleryContainer" class="gallery-container"></div>
-                </div>
-
                 <div id="pdfPreview" class="pdf-preview">
                     <div class="page">
                         <div class="match3-page match3-top">
-                            <h2>Match 3</h2>
+                            <h2 class="editable-title" data-title-key="title-top" contenteditable="true">MATCH 3</h2>
                             <div class="circles-grid">
                                 <div class="circle-slot" data-index="0" draggable="true"></div>
                                 <div class="circle-slot" data-index="1" draggable="true"></div>
@@ -49,7 +43,7 @@
                             </div>
                         </div>
                         <div class="match3-page match3-bottom">
-                            <h2>Match 3</h2>
+                            <h2 class="editable-title" data-title-key="title-bottom" contenteditable="true">MATCH 3</h2>
                             <div class="circles-grid">
                                 <div class="circle-slot" data-index="6" draggable="true"></div>
                                 <div class="circle-slot" data-index="7" draggable="true"></div>

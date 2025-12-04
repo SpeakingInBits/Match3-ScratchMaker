@@ -13,13 +13,19 @@ class Match3Maker {
         this.dragStartOffsetY = 0;
         this.storageKey = 'match3circles_data';
         this.galleryStorageKey = 'match3gallery_images';
+        this.titlesStorageKey = 'match3titles_data';
         this.galleryImages = []; // Store uploaded images
+        this.titles = {
+            'title-top': 'MATCH 3',
+            'title-bottom': 'MATCH 3'
+        };
         
         this.init();
     }
 
     init() {
         this.loadFromStorage();
+        this.loadTitles();
         this.loadGalleryImages();
         this.setupEventListeners();
         this.updateUI();
@@ -91,6 +97,39 @@ class Match3Maker {
         }
     }
 
+    loadTitles() {
+        try {
+            const saved = localStorage.getItem(this.titlesStorageKey);
+            if (saved) {
+                this.titles = JSON.parse(saved);
+                // Update DOM elements with saved titles
+                Object.keys(this.titles).forEach(key => {
+                    const titleEl = document.querySelector(`[data-title-key="${key}"]`);
+                    if (titleEl) {
+                        titleEl.textContent = this.titles[key];
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Error loading titles:', err);
+        }
+    }
+
+    saveTitles() {
+        try {
+            // Get current title values from DOM
+            document.querySelectorAll('[data-title-key]').forEach(titleEl => {
+                const key = titleEl.getAttribute('data-title-key');
+                this.titles[key] = titleEl.textContent;
+            });
+            localStorage.setItem(this.titlesStorageKey, JSON.stringify(this.titles));
+            this.showSaveStatus('saved');
+        } catch (err) {
+            console.error('Error saving titles:', err);
+            this.showSaveStatus('error');
+        }
+    }
+
     showSaveStatus(status) {
         const statusEl = document.getElementById('saveStatus');
         if (!statusEl) return;
@@ -122,6 +161,17 @@ class Match3Maker {
         document.getElementById('addCircleBtn').addEventListener('click', () => this.addCircle());
         document.getElementById('exportPdfBtn').addEventListener('click', () => this.exportToPDF());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetAll());
+
+        // Editable titles
+        document.querySelectorAll('[data-title-key]').forEach(titleEl => {
+            titleEl.addEventListener('blur', () => this.saveTitles());
+            titleEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    titleEl.blur();
+                }
+            });
+        });
 
         // Circle slots
         document.querySelectorAll('.circle-slot').forEach((slot, index) => {
@@ -466,34 +516,6 @@ class Match3Maker {
             } else {
                 slot.classList.add('empty');
             }
-        });
-
-        // Update circles list
-        this.updateCirclesList();
-    }
-
-    updateCirclesList() {
-        const listContainer = document.getElementById('circlesList');
-        listContainer.innerHTML = '';
-
-        this.circles.forEach((circle, index) => {
-            const item = document.createElement('div');
-            item.className = circle ? 'circle-item filled' : 'circle-item empty';
-            
-            const text = document.createElement('span');
-            text.className = 'circle-item-text';
-            text.textContent = circle ? `Circle ${index + 1} ✓` : `Circle ${index + 1}`;
-            item.appendChild(text);
-
-            if (circle) {
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'circle-item-remove';
-                removeBtn.textContent = 'Remove';
-                removeBtn.addEventListener('click', () => this.removeCircle(index));
-                item.appendChild(removeBtn);
-            }
-
-            listContainer.appendChild(item);
         });
     }
 
