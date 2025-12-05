@@ -770,7 +770,6 @@ class Match3Maker {
                 'title-top': 'MATCH 3',
                 'title-bottom': 'MATCH 3'
             };
-            document.getElementById('imageGallery').style.display = 'none';
             document.getElementById('galleryContainer').innerHTML = '';
             document.getElementById('imageInput').value = '';
             document.querySelectorAll('.match3-page').forEach(page => {
@@ -810,13 +809,14 @@ class Match3Maker {
 
     exportToPDF() {
         const element = document.getElementById('pdfPreview');
+        document.body.classList.add('exporting');
         
         // Temporarily force inline styles for better PDF rendering
         const titles = element.querySelectorAll('.match3-page h2');
         const originalStyles = [];
         titles.forEach((title, index) => {
             originalStyles[index] = title.style.cssText;
-            title.style.cssText += 'color: #ff1493 !important; font-weight: bold !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3) !important; font-size: 60pt !important;';
+            title.style.cssText += 'color: #ff1493 !important; font-weight: bold !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3) !important; font-size: 40pt !important;';
         });
         
         const opt = {
@@ -834,11 +834,16 @@ class Match3Maker {
             jsPDF: { format: 'letter', orientation: 'portrait', unit: 'in' }
         };
 
-        html2pdf().set(opt).from(element).save().then(() => {
-            // Restore original styles
+        const restore = () => {
             titles.forEach((title, index) => {
                 title.style.cssText = originalStyles[index];
             });
+            document.body.classList.remove('exporting');
+        };
+
+        html2pdf().set(opt).from(element).save().then(restore).catch((err) => {
+            console.error('PDF export failed', err);
+            restore();
         });
     }
 }

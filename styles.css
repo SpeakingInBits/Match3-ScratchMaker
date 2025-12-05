@@ -289,11 +289,11 @@ body {
 
 .match3-page {
     flex: 1;
-    padding: 20px;
+    padding: 10px 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 8px;
     justify-content: center;
     background-repeat: no-repeat;
     background-size: cover;
@@ -532,6 +532,27 @@ body {
     max-width: 150px;
 }
 
+/* Export mode tweaks so html2pdf captures tight layout (print media isn't used there) */
+body.exporting .page {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    width: 8.5in !important;
+    height: 11in !important;
+    aspect-ratio: auto !important;
+}
+
+body.exporting .match3-page {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    flex: 1 !important;
+    height: 50% !important;
+}
+
 @media (max-width: 768px) {
     .container {
         flex-direction: column;
@@ -563,8 +584,30 @@ body {
 }
 
 @media print {
+    @page {
+        margin: 0;
+    }
+
     body {
         background: white;
+        margin: 0;
+        padding: 0;
+    }
+
+    .pdf-preview {
+        padding: 0 !important;
+        margin: 0 !important;
+        display: block !important;
+    }
+
+    .page {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        width: 8.5in !important;
+        height: 11in !important;
+        aspect-ratio: auto !important;
     }
 
     .sidebar, .main-content {
@@ -576,7 +619,11 @@ body {
     }
 
     .match3-page {
-        page-break-after: always;
+        padding: 0 !important;
+        gap: 0 !important;
+        align-items: center !important;
+        margin: 0 !important;
+        flex: 1 !important;
     }
     
     .match3-page h2 {
@@ -584,10 +631,19 @@ body {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
         font-weight: bold !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        flex: 1 !important;
+        min-height: 50% !important;
+        display: block !important;
+        background: transparent !important;
+        border-radius: 0 !important;
+        align-self: center !important;
+        text-align: center !important;
     }
     
     .circles-grid {
-        gap: 15px !important;
+        gap: 10px !important;
     }
     
     .circle-slot {
