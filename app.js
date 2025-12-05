@@ -771,7 +771,7 @@ class Match3Maker {
         const originalStyles = [];
         titles.forEach((title, index) => {
             originalStyles[index] = title.style.cssText;
-            title.style.cssText += 'color: #ff1493 !important; font-weight: bold !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3) !important;';
+            title.style.cssText += 'color: #ff1493 !important; font-weight: bold !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3) !important; font-size: 60pt !important;';
         });
         
         const opt = {
