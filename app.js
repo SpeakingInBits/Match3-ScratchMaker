@@ -762,20 +762,29 @@ class Match3Maker {
     }
 
     resetAll() {
-        if (confirm('Are you sure you want to remove all images and backgrounds?')) {
+        if (confirm('Are you sure you want to remove all images, backgrounds, and titles?')) {
             this.circles = Array(12).fill(null);
             this.galleryImages = [];
             this.backgrounds = { 'top': null, 'bottom': null };
+            this.titles = {
+                'title-top': 'MATCH 3',
+                'title-bottom': 'MATCH 3'
+            };
             document.getElementById('imageGallery').style.display = 'none';
             document.getElementById('galleryContainer').innerHTML = '';
             document.getElementById('imageInput').value = '';
             document.querySelectorAll('.match3-page').forEach(page => {
                 page.style.backgroundImage = '';
             });
+            document.querySelectorAll('[data-title-key]').forEach(titleEl => {
+                const key = titleEl.getAttribute('data-title-key');
+                titleEl.textContent = this.titles[key];
+            });
             this.updateUI();
             this.saveToStorage();
             this.saveGalleryImages();
             this.saveBackgrounds();
+            this.saveTitles();
         }
     }
 
