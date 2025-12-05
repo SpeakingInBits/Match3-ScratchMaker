@@ -559,19 +559,46 @@ class Match3Maker {
 
     openImageModal(index) {
         this.currentEditingIndex = index;
-        document.getElementById('imageModal').style.display = 'block';
-        document.getElementById('previewSection').style.display = 'flex';
-        
-        // Reset position and zoom
+        const circleData = this.circles[index];
+        const modal = document.getElementById('imageModal');
+        const previewSection = document.getElementById('previewSection');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+
+        // Reset defaults
         this.zoom = 1;
         this.offsetX = 0;
         this.offsetY = 0;
-        document.getElementById('zoomSlider').value = 1;
-        document.getElementById('zoomValue').textContent = '100%';
+        zoomSlider.value = 1;
+        zoomValue.textContent = '100%';
+
+        // Load existing image into the modal if present
+        if (circleData && circleData.image) {
+            const img = new Image();
+            img.onload = () => {
+                this.currentImage = img;
+                // Restore saved transform if present
+                this.zoom = circleData.zoom || 1;
+                this.offsetX = circleData.offsetX || 0;
+                this.offsetY = circleData.offsetY || 0;
+                zoomSlider.value = this.zoom;
+                zoomValue.textContent = Math.round(this.zoom * 100) + '%';
+                this.updatePreview();
+            };
+            img.src = circleData.image;
+            previewSection.style.display = 'flex';
+        } else {
+            // Nothing to edit
+            this.currentImage = null;
+            previewSection.style.display = 'none';
+        }
+
+        modal.style.display = 'block';
     }
 
     closeImageModal() {
         document.getElementById('imageModal').style.display = 'none';
+        document.getElementById('previewSection').style.display = 'none';
         this.currentEditingIndex = null;
         this.currentImage = null;
     }
