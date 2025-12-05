@@ -111,24 +111,27 @@ class Match3Maker {
                                 loadedCount++;
                                 if (loadedCount === imageDataArray.length) {
                                     this.renderGallery();
-                                    document.getElementById('imageGallery').style.display = 'block';
                                 }
                             };
                             img.src = dataUrl;
                             return { data: dataUrl, img: img };
                         });
                     }
+                    // Always show gallery
+                    document.getElementById('imageGallery').style.display = 'block';
                     resolve();
                 };
                 request.onerror = () => {
                     console.error('Error loading gallery');
                     this.galleryImages = [];
+                    document.getElementById('imageGallery').style.display = 'block';
                     resolve();
                 };
             });
         } catch (err) {
             console.error('Error loading gallery images:', err);
             this.galleryImages = [];
+            document.getElementById('imageGallery').style.display = 'block';
         }
     }
 
@@ -408,6 +411,39 @@ class Match3Maker {
                 }
             });
         });
+
+        // Gallery drop zone drag and drop
+        const galleryDropZone = document.getElementById('galleryDropZone');
+        if (galleryDropZone) {
+            galleryDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+                galleryDropZone.classList.add('drag-over');
+            });
+
+            galleryDropZone.addEventListener('dragleave', (e) => {
+                if (e.target === galleryDropZone) {
+                    galleryDropZone.classList.remove('drag-over');
+                }
+            });
+
+            galleryDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                galleryDropZone.classList.remove('drag-over');
+                
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    this.handleImageSelect({ target: { files: files } });
+                }
+            });
+
+            // Click to upload
+            galleryDropZone.addEventListener('click', () => {
+                document.getElementById('imageInput').click();
+            });
+        }
     }
 
     startDrag(e) {
