@@ -380,8 +380,8 @@ body {
 }
 
 .circle-slot img {
-    width: 100%;
-    height: 100%;
+    width: 1.90in;
+    height: 1.90in;
     object-fit: cover;
     border-radius: 50%;
     display: block;
@@ -660,8 +660,8 @@ body.exporting .match3-page {
     
     .circle-slot img {
         border-radius: 50% !important;
-        width: 100% !important;
-        height: 100% !important;
+        width: 1.95in !important;
+        height: 1.95in !important;
         object-fit: cover !important;
         display: block !important;
         margin: 0 !important;
