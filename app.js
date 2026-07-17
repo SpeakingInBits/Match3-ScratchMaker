@@ -104,15 +104,17 @@ class Match3Maker {
                 request.onsuccess = () => {
                     if (request.result) {
                         const imageDataArray = request.result.data;
-                        let loadedCount = 0;
+                        let settledCount = 0;
+                        const onSettled = () => {
+                            settledCount++;
+                            if (settledCount === imageDataArray.length) {
+                                this.renderGallery();
+                            }
+                        };
                         this.galleryImages = imageDataArray.map((dataUrl) => {
                             const img = new Image();
-                            img.onload = () => {
-                                loadedCount++;
-                                if (loadedCount === imageDataArray.length) {
-                                    this.renderGallery();
-                                }
-                            };
+                            img.onload = onSettled;
+                            img.onerror = onSettled;
                             img.src = dataUrl;
                             return { data: dataUrl, img: img };
                         });
@@ -270,16 +272,16 @@ class Match3Maker {
     }
 
     applyBackgrounds() {
-        if (this.backgrounds.top) {
-            document.querySelector('.match3-top').style.backgroundImage = `url(${this.backgrounds.top})`;
-            document.querySelector('.match3-top').style.backgroundSize = 'cover';
-            document.querySelector('.match3-top').style.backgroundPosition = 'center';
-        }
-        if (this.backgrounds.bottom) {
-            document.querySelector('.match3-bottom').style.backgroundImage = `url(${this.backgrounds.bottom})`;
-            document.querySelector('.match3-bottom').style.backgroundSize = 'cover';
-            document.querySelector('.match3-bottom').style.backgroundPosition = 'center';
-        }
+        const applyTo = (selector, url) => {
+            if (!url) return;
+            const el = document.querySelector(selector);
+            if (!el) return;
+            el.style.backgroundImage = `url(${url})`;
+            el.style.backgroundSize = 'cover';
+            el.style.backgroundPosition = 'center';
+        };
+        applyTo('.match3-top', this.backgrounds.top);
+        applyTo('.match3-bottom', this.backgrounds.bottom);
     }
 
     showSaveStatus(status) {
@@ -608,8 +610,18 @@ class Match3Maker {
         if (!files || files.length === 0) return;
 
         // Process all selected files (append to existing gallery)
-        let loadedCount = 0;
+        let settledCount = 0;
         const totalFiles = files.length;
+        const onSettled = () => {
+            settledCount++;
+            // Refresh gallery once every file has loaded (or failed)
+            if (settledCount === totalFiles) {
+                this.renderGallery();
+                this.saveGalleryImages();
+                document.getElementById('imageGallery').style.display = 'block';
+                document.getElementById('previewSection').style.display = 'none';
+            }
+        };
         Array.from(files).forEach((file) => {
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -619,18 +631,12 @@ class Match3Maker {
                         data: event.target.result,
                         img: img
                     });
-                    loadedCount++;
-                    
-                    // Show gallery when all images are loaded
-                    if (loadedCount === totalFiles) {
-                        this.renderGallery();
-                        this.saveGalleryImages();
-                        document.getElementById('imageGallery').style.display = 'block';
-                        document.getElementById('previewSection').style.display = 'none';
-                    }
+                    onSettled();
                 };
+                img.onerror = onSettled;
                 img.src = event.target.result;
             };
+            reader.onerror = onSettled;
             reader.readAsDataURL(file);
         });
     }
@@ -821,11 +827,8 @@ class Match3Maker {
             if (this.circles[index]) {
                 const img = document.createElement('img');
                 img.src = this.circles[index].image;
-                img.style.width = '100%';
-                img.style.height = '100%';
-                img.style.objectFit = 'cover';
-                img.style.borderRadius = '50%';
-                img.style.display = 'block';
+                // Sizing/shape comes from the `.circle-slot img` CSS rule so the
+                // scratch-sticker gap stays consistent on screen and in the PDF.
                 slot.appendChild(img);
                 slot.classList.remove('empty');
             } else {
