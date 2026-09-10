@@ -27,8 +27,10 @@ class Match3Maker {
         this.quickCards = {
             selected: new Set(),
             primary: null,
+            adjustments: {}, // gallery index -> { zoom, offsetX, offsetY, image }
             busy: false
         };
+        this.quickEditingIndex = null; // gallery index being adjusted for quick cards
         
         this.initDB();
     }
@@ -619,6 +621,7 @@ class Match3Maker {
         document.getElementById('imageModal').style.display = 'none';
         document.getElementById('previewSection').style.display = 'none';
         this.currentEditingIndex = null;
+        this.quickEditingIndex = null;
         this.currentImage = null;
     }
 
@@ -790,6 +793,20 @@ class Match3Maker {
             this.currentImage, this.zoom, this.offsetX, this.offsetY, canvas.width
         );
 
+        // Adjusting a gallery image for Quick Cards: remember the crop instead
+        // of writing to an editor circle.
+        if (this.quickEditingIndex !== null) {
+            this.quickCards.adjustments[this.quickEditingIndex] = {
+                image: imageData,
+                zoom: this.zoom,
+                offsetX: this.offsetX,
+                offsetY: this.offsetY
+            };
+            this.refreshQuickTile(this.quickEditingIndex);
+            this.closeImageModal();
+            return;
+        }
+
         this.circles[this.currentEditingIndex] = {
             image: imageData,
             zoom: this.zoom,
@@ -826,6 +843,9 @@ class Match3Maker {
                 'title-top': 'MATCH 3',
                 'title-bottom': 'MATCH 3'
             };
+            this.quickCards.selected = new Set();
+            this.quickCards.primary = null;
+            this.quickCards.adjustments = {};
             document.getElementById('galleryContainer').innerHTML = '';
             document.getElementById('imageInput').value = '';
             document.querySelectorAll('.match3-page').forEach(page => {
@@ -927,6 +947,11 @@ class Match3Maker {
         if (this.quickCards.primary !== null && !this.quickCards.selected.has(this.quickCards.primary)) {
             this.quickCards.primary = null;
         }
+        Object.keys(this.quickCards.adjustments).forEach(key => {
+            if (parseInt(key, 10) >= this.galleryImages.length) {
+                delete this.quickCards.adjustments[key];
+            }
+        });
 
         const hasEnough = this.galleryImages.length >= 2;
         emptyNotice.hidden = hasEnough;
@@ -965,16 +990,33 @@ class Match3Maker {
             check.textContent = '\u2713';
             item.appendChild(check);
 
+            const tools = document.createElement('div');
+            tools.className = 'quick-tools';
+
+            const adjust = document.createElement('button');
+            adjust.type = 'button';
+            adjust.className = 'quick-tool quick-adjust';
+            adjust.title = 'Adjust zoom and position';
+            adjust.setAttribute('aria-label', 'Adjust zoom and position');
+            adjust.textContent = '\u270E';
+            adjust.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openQuickAdjustModal(index);
+            });
+            tools.appendChild(adjust);
+
             const star = document.createElement('button');
             star.type = 'button';
-            star.className = 'quick-star';
+            star.className = 'quick-tool quick-star';
             star.title = 'Use as the match image on every card';
+            star.setAttribute('aria-label', 'Use as the match image on every card');
             star.textContent = '\u2605';
             star.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.toggleQuickPrimary(index);
             });
-            item.appendChild(star);
+            tools.appendChild(star);
+            item.appendChild(tools);
 
             const badge = document.createElement('span');
             badge.className = 'quick-badge';
@@ -1015,7 +1057,65 @@ class Match3Maker {
             const index = parseInt(item.dataset.galleryIndex, 10);
             item.classList.toggle('selected', this.quickCards.selected.has(index));
             item.classList.toggle('primary', this.quickCards.primary === index);
+            this.refreshQuickTile(index, item);
         });
+    }
+
+    /**
+     * Show the circular crop that will be printed on selected tiles, and the
+     * raw gallery image on unselected ones.
+     */
+    refreshQuickTile(index, item) {
+        item = item || document.querySelector(`#quickImageGrid .quick-image[data-gallery-index="${index}"]`);
+        if (!item) return;
+        const img = item.querySelector('img');
+        const crop = this.quickCards.selected.has(index) ? this.getQuickCrop(index) : null;
+        item.classList.toggle('cropped', !!crop);
+        img.src = crop || this.galleryImages[index].data;
+    }
+
+    /**
+     * Cropped circle image for a gallery index, honouring any zoom/position
+     * the user set via the adjust modal. Falls back to a centred, 100% crop.
+     * Returns null if the gallery image hasn't finished loading yet.
+     */
+    getQuickCrop(index) {
+        const existing = this.quickCards.adjustments[index];
+        if (existing) return existing.image;
+        const galleryImg = this.galleryImages[index];
+        if (!galleryImg || !galleryImg.img.complete || !galleryImg.img.naturalWidth) return null;
+        const image = this.renderCircleImage(galleryImg.img);
+        this.quickCards.adjustments[index] = { image, zoom: 1, offsetX: 0, offsetY: 0 };
+        return image;
+    }
+
+    /** Open the standard zoom/pan modal for a gallery image used in quick cards. */
+    openQuickAdjustModal(index) {
+        if (this.quickCards.busy) return;
+        if (!this.quickCards.selected.has(index)) {
+            this.quickCards.selected.add(index);
+            this.refreshQuickImageStates();
+            this.updateQuickCardsSummary();
+        }
+        const galleryImg = this.galleryImages[index];
+        if (!galleryImg) return;
+
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        const saved = this.quickCards.adjustments[index] || { zoom: 1, offsetX: 0, offsetY: 0 };
+
+        this.quickEditingIndex = index;
+        this.currentEditingIndex = null;
+        this.currentImage = galleryImg.img;
+        this.zoom = saved.zoom || 1;
+        this.offsetX = saved.offsetX || 0;
+        this.offsetY = saved.offsetY || 0;
+        zoomSlider.value = this.zoom;
+        zoomValue.textContent = Math.round(this.zoom * 100) + '%';
+
+        this.updatePreview();
+        document.getElementById('previewSection').style.display = 'flex';
+        document.getElementById('imageModal').style.display = 'block';
     }
 
     getQuickPageCount() {
@@ -1164,15 +1264,16 @@ class Match3Maker {
         this.setQuickCardsStatus('Preparing images…');
 
         try {
-            // Crop every selected image into a circle once
+            // Crop every selected image into a circle once, using any
+            // zoom/position the user set in the adjust modal
             const cropped = {};
             for (const index of selected) {
                 const galleryImg = this.galleryImages[index];
                 await this.waitForImage(galleryImg.img);
-                if (!galleryImg.img.naturalWidth) {
+                cropped[index] = this.getQuickCrop(index);
+                if (!cropped[index]) {
                     throw new Error('One of the selected images could not be loaded.');
                 }
-                cropped[index] = this.renderCircleImage(galleryImg.img);
             }
 
             // Build every page

@@ -357,6 +357,11 @@ body {
     background-color: rgba(0, 0, 0, 0.5);
 }
 
+/* The adjust modal can open on top of the Quick Cards modal */
+#imageModal {
+    z-index: 1001;
+}
+
 .modal-content {
     background-color: #fefefe;
     margin: 50px auto;
@@ -567,25 +572,38 @@ body {
     display: block;
 }
 
-.quick-star {
+.quick-tools {
     position: absolute;
     top: 2px;
     right: 2px;
+    display: none;
+    gap: 2px;
+}
+
+.quick-image.selected .quick-tools {
+    display: flex;
+}
+
+.quick-tool {
     width: 24px;
     height: 24px;
     border: none;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.9);
-    color: #bbb;
-    font-size: 16px;
+    color: #888;
+    font-size: 15px;
     line-height: 24px;
     padding: 0;
     cursor: pointer;
-    display: none;
 }
 
-.quick-image.selected .quick-star {
-    display: block;
+.quick-tool:hover {
+    color: #007bff;
+}
+
+.quick-star {
+    color: #bbb;
+    font-size: 16px;
 }
 
 .quick-star:hover {
@@ -594,6 +612,15 @@ body {
 
 .quick-image.primary .quick-star {
     color: #ff1493;
+}
+
+.quick-image.cropped {
+    background: #fff;
+}
+
+.quick-image.cropped img {
+    object-fit: contain;
+    padding: 4px;
 }
 
 .quick-badge {

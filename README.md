@@ -35,6 +35,7 @@ Try it right now on GitHub Pages — no install required:
 4. Click **Export to PDF** to download a printable sheet.
 5. Or click **Quick Cards** to batch-generate randomized sheets:
    - Select at least two gallery images. Click the ★ on one to make it the **match image** on every card; leave none starred to pick a random selected image per card.
+   - Selected images show the circle that will be printed. Click the ✎ on one to adjust its zoom and position with the usual drag/scroll controls.
    - Choose how many pages you want (two cards per page) and click **Generate & Export PDF**.
    - Every card gets three copies of its match image plus three other selected images, shuffled into random positions. Your current titles and backgrounds are reused, and the editor is left untouched.
 
