@@ -21,6 +21,7 @@ Try it right now on GitHub Pages — no install required:
 - **Adjust each image** in a modal — drag to reposition and scroll (or use the slider) to zoom — before it's cropped into a circle.
 - **Editable titles** — click a "MATCH 3" heading to rename it.
 - **Two games per page**, six circles each (12 circles total).
+- **Quick Cards** — pick two or more gallery images, optionally star a "match" image, choose a page count, and export a multi-page PDF of randomized cards in one click.
 - **Export to PDF** at Letter size, ready to print.
 - **Auto-save** — circles, gallery, backgrounds, and titles persist locally between sessions.
 - **Reset All** to start over.
@@ -32,6 +33,10 @@ Try it right now on GitHub Pages — no install required:
    - Or drag an image onto the top/bottom half of the page to set a **background**. Right-click a background to remove it.
 3. Click a title to edit it.
 4. Click **Export to PDF** to download a printable sheet.
+5. Or click **Quick Cards** to batch-generate randomized sheets:
+   - Select at least two gallery images. Click the ★ on one to make it the **match image** on every card; leave none starred to pick a random selected image per card.
+   - Choose how many pages you want (two cards per page) and click **Generate & Export PDF**.
+   - Every card gets three copies of its match image plus three other selected images, shuffled into random positions. Your current titles and backgrounds are reused, and the editor is left untouched.
 
 ## Running locally
 
