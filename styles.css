@@ -357,6 +357,11 @@ body {
     background-color: rgba(0, 0, 0, 0.5);
 }
 
+/* The adjust modal can open on top of the Quick Cards modal */
+#imageModal {
+    z-index: 1001;
+}
+
 .modal-content {
     background-color: #fefefe;
     margin: 50px auto;
@@ -460,6 +465,222 @@ body {
 .modal-actions .btn {
     flex: 1;
     max-width: 150px;
+}
+
+/* Quick Card Generation modal */
+.quick-modal-content {
+    max-width: 680px;
+}
+
+.modal-help {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.quick-empty {
+    padding: 14px;
+    border-radius: 4px;
+    background: #fff8e1;
+    color: #8a6d00;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.quick-section {
+    margin-bottom: 20px;
+}
+
+.quick-section h3 {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quick-count {
+    font-size: 12px;
+    font-weight: normal;
+    color: #777;
+}
+
+.quick-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 4px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    background: #fafafa;
+}
+
+.quick-image {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border: 3px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.quick-image:hover {
+    border-color: #007bff;
+}
+
+.quick-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+}
+
+.quick-image.selected {
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.quick-image.primary {
+    border-color: #ff1493;
+    box-shadow: 0 0 0 2px rgba(255, 20, 147, 0.25);
+}
+
+.quick-check {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    color: white;
+    font-size: 13px;
+    line-height: 20px;
+    text-align: center;
+    display: none;
+    pointer-events: none;
+}
+
+.quick-image.selected .quick-check {
+    display: block;
+}
+
+.quick-tools {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    display: none;
+    gap: 2px;
+}
+
+.quick-image.selected .quick-tools {
+    display: flex;
+}
+
+.quick-tool {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    color: #888;
+    font-size: 15px;
+    line-height: 24px;
+    padding: 0;
+    cursor: pointer;
+}
+
+.quick-tool:hover {
+    color: #007bff;
+}
+
+.quick-star {
+    color: #bbb;
+    font-size: 16px;
+}
+
+.quick-star:hover {
+    color: #ff1493;
+}
+
+.quick-image.primary .quick-star {
+    color: #ff1493;
+}
+
+.quick-image.cropped {
+    background: #fff;
+}
+
+.quick-image.cropped img {
+    object-fit: contain;
+    padding: 4px;
+}
+
+.quick-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #ff1493;
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    padding: 2px 0;
+    display: none;
+    pointer-events: none;
+}
+
+.quick-image.primary .quick-badge {
+    display: block;
+}
+
+.quick-primary-info {
+    font-size: 12px;
+    color: #555;
+    margin-top: 8px;
+}
+
+.quick-pages-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #555;
+}
+
+.quick-pages-row input[type="number"] {
+    width: 70px;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.quick-status {
+    font-size: 13px;
+    padding: 10px;
+    border-radius: 4px;
+    background: #f0f0f0;
+    color: #555;
+    margin-bottom: 16px;
+}
+
+.quick-status.error {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* Export mode tweaks so html2pdf captures tight layout (print media isn't used there) */

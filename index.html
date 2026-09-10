@@ -13,6 +13,7 @@
             <h1>Match3Maker</h1>
             <div class="controls">
                 <button id="exportPdfBtn" class="btn btn-secondary">Export to PDF</button>
+                <button id="quickCardsBtn" class="btn btn-primary">Quick Cards</button>
                 <button id="resetBtn" class="btn btn-danger">Reset All</button>
                 <div id="saveStatus" class="save-status">Auto-saving...</div>
             </div>
@@ -88,6 +89,52 @@
                         <button id="confirmBtn" class="btn btn-primary">Confirm</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for quick card generation (issue #2) -->
+    <div id="quickCardsModal" class="modal">
+        <div class="modal-content quick-modal-content">
+            <span class="close" id="quickCardsClose">&times;</span>
+            <h2>Quick Card Generation</h2>
+            <p class="modal-help">
+                Pick at least two images. Every card gets three copies of one <strong>match image</strong>
+                plus three other images, shuffled into random positions. Each page holds two cards,
+                and your current titles and backgrounds are reused.
+            </p>
+
+            <div id="quickCardsEmpty" class="quick-empty" hidden>
+                Upload at least two images to your gallery first.
+            </div>
+
+            <div id="quickCardsForm">
+                <div class="quick-section">
+                    <h3>1. Choose images <span id="quickSelectedCount" class="quick-count">0 selected</span></h3>
+                    <p class="help-text">
+                        Click an image to select it. Selected images show the circle that will be printed;
+                        click &#9998; to adjust its zoom and position. Click &#9733; on a selected image to always use
+                        it as the match image. With no star, a random selected image is used for each card.
+                    </p>
+                    <div id="quickImageGrid" class="quick-image-grid"></div>
+                    <p id="quickPrimaryInfo" class="quick-primary-info">Match image: random for each card</p>
+                </div>
+
+                <div class="quick-section">
+                    <h3>2. Choose how many pages</h3>
+                    <div class="quick-pages-row">
+                        <label for="quickPageCount">Pages</label>
+                        <input type="number" id="quickPageCount" min="1" max="30" value="1">
+                        <span id="quickCardCount" class="quick-count">2 cards</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="quickCardsStatus" class="quick-status" hidden></div>
+
+            <div class="modal-actions">
+                <button id="quickCancelBtn" class="btn btn-secondary">Cancel</button>
+                <button id="quickGenerateBtn" class="btn btn-primary">Generate &amp; Export PDF</button>
             </div>
         </div>
     </div>

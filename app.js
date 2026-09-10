@@ -23,6 +23,14 @@ class Match3Maker {
             'top': null,
             'bottom': null
         };
+        // Quick Card Generation state (gallery indices)
+        this.quickCards = {
+            selected: new Set(),
+            primary: null,
+            adjustments: {}, // gallery index -> { zoom, offsetX, offsetY, image }
+            busy: false
+        };
+        this.quickEditingIndex = null; // gallery index being adjusted for quick cards
         
         this.initDB();
     }
@@ -313,7 +321,15 @@ class Match3Maker {
 
         // Control elements
         document.getElementById('exportPdfBtn').addEventListener('click', () => this.exportToPDF());
+        document.getElementById('quickCardsBtn').addEventListener('click', () => this.openQuickCardsModal());
         document.getElementById('resetBtn').addEventListener('click', () => this.resetAll());
+
+        // Quick Card Generation modal
+        const quickModal = document.getElementById('quickCardsModal');
+        document.getElementById('quickCardsClose').addEventListener('click', () => this.closeQuickCardsModal());
+        document.getElementById('quickCancelBtn').addEventListener('click', () => this.closeQuickCardsModal());
+        document.getElementById('quickGenerateBtn').addEventListener('click', () => this.generateQuickCards());
+        document.getElementById('quickPageCount').addEventListener('input', () => this.updateQuickCardsSummary());
 
         // Editable titles
         document.querySelectorAll('[data-title-key]').forEach(titleEl => {
@@ -362,6 +378,9 @@ class Match3Maker {
         window.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeImageModal();
+            }
+            if (e.target === quickModal) {
+                this.closeQuickCardsModal();
             }
         });
 
@@ -602,6 +621,7 @@ class Match3Maker {
         document.getElementById('imageModal').style.display = 'none';
         document.getElementById('previewSection').style.display = 'none';
         this.currentEditingIndex = null;
+        this.quickEditingIndex = null;
         this.currentImage = null;
     }
 
@@ -722,18 +742,16 @@ class Match3Maker {
         ctx.stroke();
     }
 
-    confirmImage() {
-        if (!this.currentImage) return;
-
-        const canvas = document.getElementById('previewCanvas');
-        const ctx = canvas.getContext('2d');
-        const radius = canvas.width / 2;
-
-        // Create a new canvas for the final circular image
+    /**
+     * Crop `img` into a circular PNG data URL using the same zoom/offset maths
+     * as the adjustment modal preview. `size` is the output diameter in px.
+     */
+    renderCircleImage(img, zoom = 1, offsetX = 0, offsetY = 0, size = 600) {
         const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = canvas.width;
-        finalCanvas.height = canvas.height;
+        finalCanvas.width = size;
+        finalCanvas.height = size;
         const finalCtx = finalCanvas.getContext('2d');
+        const radius = size / 2;
 
         // Enable high-quality image smoothing
         finalCtx.imageSmoothingEnabled = true;
@@ -745,11 +763,10 @@ class Match3Maker {
         finalCtx.arc(radius, radius, radius, 0, Math.PI * 2);
         finalCtx.clip();
 
-        // Calculate image dimensions
-        const img = this.currentImage;
+        // Calculate image dimensions maintaining aspect ratio
         const imgAspect = img.width / img.height;
         let drawWidth, drawHeight;
-        const circleDiameter = canvas.width * this.zoom;
+        const circleDiameter = size * zoom;
         
         if (imgAspect > 1) {
             drawHeight = circleDiameter;
@@ -759,13 +776,36 @@ class Match3Maker {
             drawHeight = drawWidth / imgAspect;
         }
 
-        const x = (canvas.width - drawWidth) / 2 + this.offsetX;
-        const y = (canvas.height - drawHeight) / 2 + this.offsetY;
+        const x = (size - drawWidth) / 2 + offsetX;
+        const y = (size - drawHeight) / 2 + offsetY;
 
         finalCtx.drawImage(img, x, y, drawWidth, drawHeight);
         finalCtx.restore();
 
-        const imageData = finalCanvas.toDataURL('image/png', 1.0);
+        return finalCanvas.toDataURL('image/png', 1.0);
+    }
+
+    confirmImage() {
+        if (!this.currentImage) return;
+
+        const canvas = document.getElementById('previewCanvas');
+        const imageData = this.renderCircleImage(
+            this.currentImage, this.zoom, this.offsetX, this.offsetY, canvas.width
+        );
+
+        // Adjusting a gallery image for Quick Cards: remember the crop instead
+        // of writing to an editor circle.
+        if (this.quickEditingIndex !== null) {
+            this.quickCards.adjustments[this.quickEditingIndex] = {
+                image: imageData,
+                zoom: this.zoom,
+                offsetX: this.offsetX,
+                offsetY: this.offsetY
+            };
+            this.refreshQuickTile(this.quickEditingIndex);
+            this.closeImageModal();
+            return;
+        }
 
         this.circles[this.currentEditingIndex] = {
             image: imageData,
@@ -803,6 +843,9 @@ class Match3Maker {
                 'title-top': 'MATCH 3',
                 'title-bottom': 'MATCH 3'
             };
+            this.quickCards.selected = new Set();
+            this.quickCards.primary = null;
+            this.quickCards.adjustments = {};
             document.getElementById('galleryContainer').innerHTML = '';
             document.getElementById('imageInput').value = '';
             document.querySelectorAll('.match3-page').forEach(page => {
@@ -837,21 +880,11 @@ class Match3Maker {
         });
     }
 
-    exportToPDF() {
-        const element = document.getElementById('pdfPreview');
-        document.body.classList.add('exporting');
-        
-        // Temporarily force inline styles for better PDF rendering
-        const titles = element.querySelectorAll('.match3-page h2');
-        const originalStyles = [];
-        titles.forEach((title, index) => {
-            originalStyles[index] = title.style.cssText;
-            title.style.cssText += 'color: #ff1493 !important; font-weight: bold !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3) !important; font-size: 40pt !important;';
-        });
-        
-        const opt = {
+    /** html2pdf options shared by every export. */
+    getPdfExportOptions(filename) {
+        return {
             margin: 0,
-            filename: 'match3_circles.pdf',
+            filename: filename,
             image: { type: 'png', quality: 1.0 },
             html2canvas: { 
                 scale: 3, 
@@ -861,20 +894,410 @@ class Match3Maker {
                 logging: false,
                 letterRendering: true
             },
-            jsPDF: { format: 'letter', orientation: 'portrait', unit: 'in' }
+            // Lossless Flate compression keeps multi-page exports to a sane size
+            jsPDF: { format: 'letter', orientation: 'portrait', unit: 'in', compress: true }
         };
+    }
 
-        const restore = () => {
+    /**
+     * Put the document into export mode and force inline title styles that
+     * html2canvas renders reliably. Returns a function that undoes it all.
+     */
+    beginExportMode(roots) {
+        document.body.classList.add('exporting');
+        const titles = [];
+        roots.forEach(root => titles.push(...root.querySelectorAll('.match3-page h2')));
+        const originalStyles = titles.map(title => title.style.cssText);
+        titles.forEach(title => {
+            title.style.cssText += 'color: #ff1493 !important; font-weight: bold !important; text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3) !important; font-size: 40pt !important;';
+        });
+        return () => {
             titles.forEach((title, index) => {
                 title.style.cssText = originalStyles[index];
             });
             document.body.classList.remove('exporting');
         };
+    }
+
+    exportToPDF() {
+        const element = document.getElementById('pdfPreview');
+        const restore = this.beginExportMode([element]);
+        const opt = this.getPdfExportOptions('match3_circles.pdf');
 
         html2pdf().set(opt).from(element).save().then(restore).catch((err) => {
             console.error('PDF export failed', err);
             restore();
         });
+    }
+
+    // ------------------------------------------------------------------
+    // Quick Card Generation (issue #2)
+    // ------------------------------------------------------------------
+
+    openQuickCardsModal() {
+        const modal = document.getElementById('quickCardsModal');
+        const emptyNotice = document.getElementById('quickCardsEmpty');
+        const form = document.getElementById('quickCardsForm');
+        const status = document.getElementById('quickCardsStatus');
+
+        // Drop any selections that no longer exist in the gallery
+        this.quickCards.selected = new Set(
+            [...this.quickCards.selected].filter(i => i < this.galleryImages.length)
+        );
+        if (this.quickCards.primary !== null && !this.quickCards.selected.has(this.quickCards.primary)) {
+            this.quickCards.primary = null;
+        }
+        Object.keys(this.quickCards.adjustments).forEach(key => {
+            if (parseInt(key, 10) >= this.galleryImages.length) {
+                delete this.quickCards.adjustments[key];
+            }
+        });
+
+        const hasEnough = this.galleryImages.length >= 2;
+        emptyNotice.hidden = hasEnough;
+        form.hidden = !hasEnough;
+        status.hidden = true;
+        status.textContent = '';
+        status.classList.remove('error');
+
+        this.renderQuickImageGrid();
+        this.updateQuickCardsSummary();
+        modal.style.display = 'block';
+    }
+
+    closeQuickCardsModal() {
+        if (this.quickCards.busy) return;
+        document.getElementById('quickCardsModal').style.display = 'none';
+    }
+
+    renderQuickImageGrid() {
+        const grid = document.getElementById('quickImageGrid');
+        grid.innerHTML = '';
+
+        this.galleryImages.forEach((imgData, index) => {
+            const item = document.createElement('div');
+            item.className = 'quick-image';
+            item.dataset.galleryIndex = index;
+            item.setAttribute('role', 'button');
+            item.title = 'Click to select';
+
+            const img = document.createElement('img');
+            img.src = imgData.data;
+            item.appendChild(img);
+
+            const check = document.createElement('span');
+            check.className = 'quick-check';
+            check.textContent = '\u2713';
+            item.appendChild(check);
+
+            const tools = document.createElement('div');
+            tools.className = 'quick-tools';
+
+            const adjust = document.createElement('button');
+            adjust.type = 'button';
+            adjust.className = 'quick-tool quick-adjust';
+            adjust.title = 'Adjust zoom and position';
+            adjust.setAttribute('aria-label', 'Adjust zoom and position');
+            adjust.textContent = '\u270E';
+            adjust.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openQuickAdjustModal(index);
+            });
+            tools.appendChild(adjust);
+
+            const star = document.createElement('button');
+            star.type = 'button';
+            star.className = 'quick-tool quick-star';
+            star.title = 'Use as the match image on every card';
+            star.setAttribute('aria-label', 'Use as the match image on every card');
+            star.textContent = '\u2605';
+            star.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleQuickPrimary(index);
+            });
+            tools.appendChild(star);
+            item.appendChild(tools);
+
+            const badge = document.createElement('span');
+            badge.className = 'quick-badge';
+            badge.textContent = 'MATCH';
+            item.appendChild(badge);
+
+            item.addEventListener('click', () => this.toggleQuickSelection(index));
+            grid.appendChild(item);
+        });
+
+        this.refreshQuickImageStates();
+    }
+
+    toggleQuickSelection(index) {
+        if (this.quickCards.busy) return;
+        if (this.quickCards.selected.has(index)) {
+            this.quickCards.selected.delete(index);
+            if (this.quickCards.primary === index) {
+                this.quickCards.primary = null;
+            }
+        } else {
+            this.quickCards.selected.add(index);
+        }
+        this.refreshQuickImageStates();
+        this.updateQuickCardsSummary();
+    }
+
+    toggleQuickPrimary(index) {
+        if (this.quickCards.busy) return;
+        if (!this.quickCards.selected.has(index)) return;
+        this.quickCards.primary = this.quickCards.primary === index ? null : index;
+        this.refreshQuickImageStates();
+        this.updateQuickCardsSummary();
+    }
+
+    refreshQuickImageStates() {
+        document.querySelectorAll('#quickImageGrid .quick-image').forEach(item => {
+            const index = parseInt(item.dataset.galleryIndex, 10);
+            item.classList.toggle('selected', this.quickCards.selected.has(index));
+            item.classList.toggle('primary', this.quickCards.primary === index);
+            this.refreshQuickTile(index, item);
+        });
+    }
+
+    /**
+     * Show the circular crop that will be printed on selected tiles, and the
+     * raw gallery image on unselected ones.
+     */
+    refreshQuickTile(index, item) {
+        item = item || document.querySelector(`#quickImageGrid .quick-image[data-gallery-index="${index}"]`);
+        if (!item) return;
+        const img = item.querySelector('img');
+        const crop = this.quickCards.selected.has(index) ? this.getQuickCrop(index) : null;
+        item.classList.toggle('cropped', !!crop);
+        img.src = crop || this.galleryImages[index].data;
+    }
+
+    /**
+     * Cropped circle image for a gallery index, honouring any zoom/position
+     * the user set via the adjust modal. Falls back to a centred, 100% crop.
+     * Returns null if the gallery image hasn't finished loading yet.
+     */
+    getQuickCrop(index) {
+        const existing = this.quickCards.adjustments[index];
+        if (existing) return existing.image;
+        const galleryImg = this.galleryImages[index];
+        if (!galleryImg || !galleryImg.img.complete || !galleryImg.img.naturalWidth) return null;
+        const image = this.renderCircleImage(galleryImg.img);
+        this.quickCards.adjustments[index] = { image, zoom: 1, offsetX: 0, offsetY: 0 };
+        return image;
+    }
+
+    /** Open the standard zoom/pan modal for a gallery image used in quick cards. */
+    openQuickAdjustModal(index) {
+        if (this.quickCards.busy) return;
+        if (!this.quickCards.selected.has(index)) {
+            this.quickCards.selected.add(index);
+            this.refreshQuickImageStates();
+            this.updateQuickCardsSummary();
+        }
+        const galleryImg = this.galleryImages[index];
+        if (!galleryImg) return;
+
+        const zoomSlider = document.getElementById('zoomSlider');
+        const zoomValue = document.getElementById('zoomValue');
+        const saved = this.quickCards.adjustments[index] || { zoom: 1, offsetX: 0, offsetY: 0 };
+
+        this.quickEditingIndex = index;
+        this.currentEditingIndex = null;
+        this.currentImage = galleryImg.img;
+        this.zoom = saved.zoom || 1;
+        this.offsetX = saved.offsetX || 0;
+        this.offsetY = saved.offsetY || 0;
+        zoomSlider.value = this.zoom;
+        zoomValue.textContent = Math.round(this.zoom * 100) + '%';
+
+        this.updatePreview();
+        document.getElementById('previewSection').style.display = 'flex';
+        document.getElementById('imageModal').style.display = 'block';
+    }
+
+    getQuickPageCount() {
+        const input = document.getElementById('quickPageCount');
+        const min = parseInt(input.min, 10) || 1;
+        const max = parseInt(input.max, 10) || 30;
+        const value = parseInt(input.value, 10);
+        if (isNaN(value)) return min;
+        return Math.min(max, Math.max(min, value));
+    }
+
+    updateQuickCardsSummary() {
+        const count = this.quickCards.selected.size;
+        const pages = this.getQuickPageCount();
+        document.getElementById('quickSelectedCount').textContent =
+            `${count} selected`;
+        document.getElementById('quickCardCount').textContent =
+            `${pages * 2} card${pages * 2 === 1 ? '' : 's'}`;
+        document.getElementById('quickPrimaryInfo').textContent =
+            this.quickCards.primary === null
+                ? 'Match image: random for each card'
+                : 'Match image: the starred image on every card';
+        document.getElementById('quickGenerateBtn').disabled = count < 2 || this.quickCards.busy;
+    }
+
+    setQuickCardsStatus(message, isError = false) {
+        const status = document.getElementById('quickCardsStatus');
+        status.hidden = !message;
+        status.textContent = message || '';
+        status.classList.toggle('error', isError);
+    }
+
+    /** Fisher–Yates shuffle (returns a new array). */
+    shuffleArray(array) {
+        const result = array.slice();
+        for (let i = result.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+    }
+
+    /**
+     * Build one card: six gallery indices in random order. Exactly three slots
+     * hold the match image; the other three are drawn from the remaining
+     * selected images and never form a second triple when that's avoidable.
+     */
+    buildQuickCardLayout(selectedIndices, primaryIndex) {
+        const match = primaryIndex !== null
+            ? primaryIndex
+            : selectedIndices[Math.floor(Math.random() * selectedIndices.length)];
+        const others = selectedIndices.filter(i => i !== match);
+
+        let fillers;
+        if (others.length === 1) {
+            // Two-image card: the other image simply fills the remaining slots
+            fillers = [others[0], others[0], others[0]];
+        } else {
+            let attempts = 0;
+            do {
+                fillers = [0, 1, 2].map(() => others[Math.floor(Math.random() * others.length)]);
+                attempts++;
+            } while (fillers.every(i => i === fillers[0]) && attempts < 20);
+            if (fillers.every(i => i === fillers[0])) {
+                fillers = this.shuffleArray(others).slice(0, 3);
+                while (fillers.length < 3) fillers.push(others[fillers.length % others.length]);
+            }
+        }
+
+        return this.shuffleArray([match, match, match, ...fillers]);
+    }
+
+    /** Resolve once an <img> has finished loading (or failed). */
+    waitForImage(img) {
+        if (img.complete) return Promise.resolve(img);
+        return new Promise(resolve => {
+            img.addEventListener('load', () => resolve(img), { once: true });
+            img.addEventListener('error', () => resolve(img), { once: true });
+        });
+    }
+
+    /**
+     * Create a printable page element (two cards) based on the editor's page
+     * so titles and backgrounds carry over. `cards` holds two arrays of six
+     * cropped image data URLs.
+     */
+    buildQuickPageElement(cards) {
+        const template = document.querySelector('#pdfPreview .page');
+        const page = template.cloneNode(true);
+        page.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+
+        const sections = page.querySelectorAll('.match3-page');
+        sections.forEach((section, cardIndex) => {
+            section.classList.remove('drag-over-bg');
+            const slots = section.querySelectorAll('.circle-slot');
+            slots.forEach((slot, slotIndex) => {
+                slot.innerHTML = '';
+                slot.classList.remove('empty');
+                slot.removeAttribute('draggable');
+                slot.style.opacity = '';
+                const img = document.createElement('img');
+                img.src = cards[cardIndex][slotIndex];
+                slot.appendChild(img);
+            });
+        });
+        return page;
+    }
+
+    /**
+     * Render each page element into a single multi-page PDF. Pages are
+     * rasterised one at a time so large page counts don't exceed the
+     * browser's maximum canvas size.
+     */
+    exportPagesToPDF(pages, filename, onProgress) {
+        const opt = this.getPdfExportOptions(filename);
+        const restore = this.beginExportMode(pages);
+
+        let worker = html2pdf().set(opt).from(pages[0]).toPdf();
+        pages.slice(1).forEach((page, i) => {
+            worker = worker
+                .get('pdf').then(pdf => {
+                    if (onProgress) onProgress(i + 2, pages.length);
+                    pdf.addPage();
+                })
+                .from(page).toContainer().toCanvas().toPdf();
+        });
+
+        return worker.save().then(restore, (err) => {
+            restore();
+            throw err;
+        });
+    }
+
+    async generateQuickCards() {
+        if (this.quickCards.busy) return;
+        const selected = [...this.quickCards.selected].sort((a, b) => a - b);
+        if (selected.length < 2) {
+            this.setQuickCardsStatus('Select at least two images.', true);
+            return;
+        }
+        const pageCount = this.getQuickPageCount();
+        document.getElementById('quickPageCount').value = pageCount;
+
+        this.quickCards.busy = true;
+        this.updateQuickCardsSummary();
+        this.setQuickCardsStatus('Preparing images…');
+
+        try {
+            // Crop every selected image into a circle once, using any
+            // zoom/position the user set in the adjust modal
+            const cropped = {};
+            for (const index of selected) {
+                const galleryImg = this.galleryImages[index];
+                await this.waitForImage(galleryImg.img);
+                cropped[index] = this.getQuickCrop(index);
+                if (!cropped[index]) {
+                    throw new Error('One of the selected images could not be loaded.');
+                }
+            }
+
+            // Build every page
+            const pages = [];
+            for (let p = 0; p < pageCount; p++) {
+                const cards = [0, 1].map(() =>
+                    this.buildQuickCardLayout(selected, this.quickCards.primary).map(i => cropped[i])
+                );
+                pages.push(this.buildQuickPageElement(cards));
+            }
+
+            this.setQuickCardsStatus(`Rendering page 1 of ${pageCount}…`);
+            await this.exportPagesToPDF(pages, 'match3_quick_cards.pdf', (current, total) => {
+                this.setQuickCardsStatus(`Rendering page ${current} of ${total}…`);
+            });
+
+            this.setQuickCardsStatus(`Done — exported ${pageCount} page${pageCount === 1 ? '' : 's'} (${pageCount * 2} cards).`);
+        } catch (err) {
+            console.error('Quick card generation failed', err);
+            this.setQuickCardsStatus('Sorry, generating the PDF failed. Please try again.', true);
+        } finally {
+            this.quickCards.busy = false;
+            this.updateQuickCardsSummary();
+        }
     }
 }
 
